@@ -37,33 +37,37 @@ echo
 securitytrails_key='jp9CslVyzOXNi8nQ3YPD5vrvxqUupyP0'
 virustotal_key='b44bd8d74272d806556c3aae24fc009723fb93bdf18b35d3bdb609df95067d08'
 chaos_key='4fc7c0da749de6a402c5f1bcf6d3c7793806996f090ecdec0920971426e0adbe'
-gitoken='f3190a0368cc004aec66e87de484c560c0839da2'
+gitoken='ff50ca2224b28d534d19ad9804c799ca7114d95d' #mykey#
 ##TEXT FILES##
 pwords=/usr/share/wordlist/pwords.txt
 sresolver=/usr/share/wordlist/resolvers.txt
 
 #-------------------------------------------------------------------------------------------------------#
-#Alias for Folder's
+#Alias for Folders
 
 target=~/recondata/automatd/$1
 findings=$target/findings
 final=$target/final
-
-
 #-------------------------------------------------------------------------------------------------------#
 
 domain=$1
+company= $1 |rev | cut -d"." -f2-  | rev
+
+#-------------------------------------------------------------------------------------------------------#
+#Creating Folders
 
 mkdir $target
-
 mkdir $target/findings
-
 mkdir $target/final
+#-------------------------------------------------------------------------------------------------------#
+
+#-------------------------------------------------------------------------------------------------------#
+#Subdomain Enumeration
 
 cd $findings
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mAmass Scanning started\e[0m"
-#       amass enum --passive -d $1 -o amass.txt
+       amass enum --passive -d $1 -o amass.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mFindomain Scanning started\e[0m"
         findomain -t $1 -u findomain.txt
@@ -72,22 +76,28 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mAssetfinder Scanning started\e[0m"
         assetfinder --subs-only $1 | tee -a asset.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mSubfinder Scanning started\e[0m"
-        subfinder -d $1 | tee -a subfinder.txt
+        subfinder -d $1 -recursive -silent -t 200| tee -a subfinder.txt
+        
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mSublist3r Scanning started$\e[0m"
+        python3 ~/tools/Sublist3r/sublist3r.py -v -t 15 -d $1 -o sublist3r.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mChaos Scanning started\e[0m"
         chaos -key $chaos_key -d $1 -silent | tee -a chaos.txt
+        
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCrobat Rapid7 FDNS Scanning started\e[0m"
+        crobat -s $1 | tee -a crobat.txt        
+
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mShodan Scanning started\e[0m"        
+        shodan domain $1| sed -e '1,2d'|awk -F '\\s\\s' '{print $1}'|grep -v '*'|awk 'NF'|sort -u
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCensys Scanning started\e[0m"
         python3 ~/tools/censys-subdomain-finder/censys_subdomain_finder.py $1 -o censys.txt
-
-echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCrobat Rapid7 FDNS Scanning started\e[0m"
-        crobat -s $1 | tee -a crobat.txt
-
+        
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mGithub-Scanning started$\e[0m"
-        python3 ~/tools/github-search/github-subdomains.py -e -t $gitoken -d $1 | egrep '$1' | tee -a gitsub.txt
+        python3 ~/tools/github-search/github-subdomains.py -e -t $gitoken -d $1 | egrep '$1' | tee -a github.txt
 
-echo -e "\e[5m\e[1m${BLUE}[+]\e[96mSublist3r Scanning started$\e[0m"
-        python3 ~/tools/Sublist3r/sublist3r.py -v -t 15 -d $1 -o sublist3r.txt
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mGau Scanning started\e[0m"
+        gau -subs elmt.io | cut -d / -f 3 | cut -d : -f-1|sort -u | tee -a gau.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCrt.sh Scanning started\e[0m"
         curl -s https://crt.sh/\?q\=\%.$1\&output\=json | jq -r '.[].name_value' | sed 's/\*\.//g' | sort -u | tee -a crt.txt
@@ -102,7 +112,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mRapiddns.io Scanning started\e[0m"
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mBufferOverflow Scanning started\e[0m"
         curl -s --request GET --url "dns.bufferover.run/dns?q=.$1&rt=5" | jq --raw-output '.FDNS_A[]' | awk '{print $1}' | sed -e 's/^.*,//g' | sort -u | tee -a bufferover.txt
 
-echo -e "\e[5m\e[1m${BLUE}[+]\e[96mSearching in the SecurityTrails API...\e[0m"
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mSecurityTrails Scanning Started\e[0m"
         curl -s --request GET --url "https://api.securitytrails.com/v1/domain/$1/subdomains?apikey=$securitytrails_key" | jq --raw-output -r '.subdomains[]' | tee garbage.txt
         for i in $(cat garbage.txt); do echo $i'.'$1; done | tee -a securitytrails.txt
         rm -rf garbage.txt
@@ -119,6 +129,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mHackertarget Scanning started\e[0m"
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mVirustotal Scanning started\e[0m"
         curl --silent --request GET --url "https://www.virustotal.com/vtapi/v2/domain/report?apikey=$virustotal_key&domain=$1" | jq --raw-output -r '.subdomains[]?' | sort -u  | tee virustotal.txt
 
+
 #echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCreating Allrootdomains.txt\e[0m"
 #       cat *.txt | rev | cut -d "."  -f 1,2,3 | sort -u | rev | tee allrootsubdomains.txt
 
@@ -132,7 +143,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mVirustotal Scanning started\e[0m"
 #       rm massdns.txt && rm allrootsubdomains.txt
 
 #echo -e "\e[5m\e[1m${BLUE}[+]\e[96mMaking all.txt\e[0m"
-        cat *.txt | sort -u > all.txt
+        cat *.txt |grep -v '*'| sort -u > all.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mStarting ShuffleDns Subdomain Enumeration $\e[0m"
         shuffledns -d $1 -list $findings/all.txt -r ~/tools/massdns/lists/resolvers.txt -o shuffledns.txt
@@ -172,38 +183,53 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mMoving files to final folder$\e[0m"
         cd $final
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mChecking for alive domains\e[0m"
-        cat total_subdomains.txt | sort -u | httpx -timeout 5 -threads 300 -retries 1 -ports 80,443,8009,8080,8081,8090,8180,8443 -content-length -status-code -silent -o alive_detailed.txt
+        cat total_subdomains.txt | sort -u | httpx -timeout 5 -threads 300 -retries 1 -ports 80,443,8009,8080,8081,8090,8180,8443 -content-length -status-code -title  -ip -cname  -cdn -web-server -websocket -silent -o alive_detailed.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mOKAY these are the final Alive domains\e[0m"
-        cat alive_detailed.txt | cut -d : -f-2 > alive.txt
-        count=$(cat alive.txt | sort -u | wc -l)
+        cat alive_detailed.txt | cut -d : -f-2 |sort -u|tee alive.txt
+        count=$(cat alive.txt | wc -l)
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mFound: $count Alive Subdomain's\e[0m"
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mSorting Subdomains by Status Codes\e[0m"
         mkdir subdomains_sorted && cd subdomains_sorted
-        cat ../alive_detailed.txt| egrep '400|401|402|403|404|405' | cut -d : -f-2 > 400.txt
-        cat ../alive_detailed.txt| egrep '200|201|202|203|204|205' | cut -d : -f-2 > 200.txt
-        cat ../alive_detailed.txt| egrep '300|301|302|304|307|308' | cut -d : -f-2 > 300.txt
-        cat ../alive_detailed.txt| egrep '500|501|502|503|504|505' | cut -d : -f-2 > 500.txt
+        cat ../alive_detailed.txt| egrep '400|401|402|403|404|405' | cut -d : -f-2 |sort -u > 400.txt
+        cat ../alive_detailed.txt| egrep '200|201|202|203|204|205' | cut -d : -f-2 |sort -u > 200.txt
+        cat ../alive_detailed.txt| egrep '300|301|302|304|307|308' | cut -d : -f-2 |sort -u > 300.txt
+        cat ../alive_detailed.txt| egrep '500|501|502|503|504|505' | cut -d : -f-2 |sort -u > 500.txt
         cd ..
+        
+        
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting Tech on Subdomains using Wappalyzer Started$\e[0m"
-        webanalyze -hosts alive.txt -silent | tee -a subs_wappalyzer.txt
+        webanalyze -hosts alive.txt -silent -update | tee -a subs_wappalyzer.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting WAFs on Subdomains$\e[0m"
         wafw00f -a -i alive.txt -o subs_waf.txt
 
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting cloud resources of the domain$\e[0m"
+        python3 ~/tools/cloud_enum/cloud_enum.py -k $domain -k $company -l cloud_enum.txt 
+
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting S3 buckets & misconfigurations $\e[0m"
+        cat ../alive.txt | nuclei -t /technologies/s3-detect.yaml -o s3-buckets.txt
+        
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting cloud resources of the domain$\e[0m"  
+
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mAquatone Started$\e[0m"
         mkdir screenshots
-        cat alive.txt | aquatone -out ./screenshots/$1 -threads 50 -screenshot-timeout 50000
+        cat alive.txt | aquatone -out ./screenshots/$1 -threads 300 -ports xlarge -screenshot-timeout 50000
+
 
         mkdir dns
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCNAME Scanning Started\e[0m"
-        dnsprobe -l alive.txt -r CNAME | tee -a ./dns/domain-cnames
+        dnsprobe -l alive.txt -r CNAME |sort -u| tee -a ./dns/domain-cnames
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mGetting IP Addresses for Each Alive Host\e[0m"
-        dnsprobe -l alive.txt | sort -u | tee -a ./dns/domain-ips
+        dnsprobe -l alive.txt | sort -u |sort -u|  tee -a ./dns/domain-ips
+
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting Cloudflare based hosts & their Origin IPs\e[0m"
+        dnsprobe -l alive.txt -r NS -c 2 | egrep "cloudflare"| awk '{print $1}'|sort -u| tee -a ./dns/domain-cloudflare.txt
+
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mJScanning started\e[0m"
         JSfileScanner.sh
@@ -238,8 +264,17 @@ echo -e ' '
 #       massdns -r $resolver -w massdns-op.txt $final/total_subs.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mBypassing Subdomains with 400 status code\e[0m"
-        cat ./subdomains_sorted/400.txt | while read i ; do byp455 $i | egrep curl | sort -u | tee ./subdomains_sorted/400_bypassed.txt; done && if [ ! -s ./subdomains_sorted/400.txt ]; then echo "The tool worked but didn't Found Any Bypass" >> ./subdomains_sorted/400_bypassed.txt;else echo "You got some bypass in 400_bypassed.txt";fi; return 0
+cd $final/subdomains_sorted/
 
+filename=./400.txt
+
+while read line; do
+
+
+        byp4xx.sh -r -c $line | egrep curl | sort -u | tee -a 400_bypassed.txt
+
+done < $filename
+cd $final
 echo -e ""
 
 #prompt_confirm() {
@@ -263,8 +298,9 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96m Checking Subdomamin Takeovers\e[0m"
         subjack -w ../alive.txt -t 100 -timeout 30 -o subjack.txt -ssl
         subzy -targets ../alive.txt -concurrency 1000 -timeout 30 -hide_fails | tee subzy.txt
         python3 ~/tools/subdover/subdover.py -l ../alive.txt -t 1000 -o subdover.txt
+        cat ../alive.txt | nuclei -t ~/nuclei-templates/takeovers/subdomain-takeover.yaml -o nuclei.txt
         cat *.txt > takeovers.txt
-        rm subjack.txt subzy.txt subdover.txt
+        rm subjack.txt subzy.txt subdover.txt nuclei.txt
         cd ..
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mScanning For CORS\e[0m"
