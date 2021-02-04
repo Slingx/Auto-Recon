@@ -211,9 +211,12 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting cloud resources of the domain$\e[0m
         python3 ~/tools/cloud_enum/cloud_enum.py -k $domain -k $company -l cloud_enum.txt 
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting S3 buckets & misconfigurations $\e[0m"
-        cat ../alive.txt | nuclei -t /technologies/s3-detect.yaml -o s3-buckets.txt
+        cat alive.txt | nuclei -t ~/nuclei-templates/technologies/s3-detect.yaml -silent |sort -u| awk '{print $4}' | tee -a s3_bucket.txt
         
-echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting cloud resources of the domain$\e[0m"  
+        
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting Cloudflare based hosts & their Origin IPs\e[0m"
+        cat alive.txt | nuclei -t ~/nuclei-templates/technologies/tech-detect.yaml -silent | egrep "cloudflare"|sort -u| awk '{print $4}' | tee -a subs_cloudflare.txt
+        
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mAquatone Started$\e[0m"
         mkdir screenshots
@@ -226,9 +229,6 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCNAME Scanning Started\e[0m"
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mGetting IP Addresses for Each Alive Host\e[0m"
         dnsprobe -l alive.txt | sort -u |sort -u|  tee -a ./dns/domain-ips
-
-echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting Cloudflare based hosts & their Origin IPs\e[0m"
-        dnsprobe -l alive.txt -r NS -c 2 | egrep "cloudflare"| awk '{print $1}'|sort -u| tee -a ./dns/domain-cloudflare.txt
 
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mJScanning started\e[0m"
