@@ -88,7 +88,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCrobat Rapid7 FDNS Scanning started\e[0m"
         crobat -s $1 | tee -a crobat.txt        
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mShodan Scanning started\e[0m"        
-        shodan domain $1| sed -e '1,2d'|awk -F '\\s\\s' '{print $1}'|grep -v '*'|awk 'NF'|sort -u
+        shodan domain $1| sed -e '1,2d'|awk -F '\\s\\s' '{print $1}'|grep -v '*'|awk 'NF'|sort -u|sed -e "s/$/.${domain}/"|tee -a shodan.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCensys Scanning started\e[0m"
         python3 ~/tools/censys-subdomain-finder/censys_subdomain_finder.py $1 -o censys.txt
@@ -213,14 +213,41 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting cloud resources of the domain$\e[0m
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting S3 buckets & misconfigurations $\e[0m"
         cat alive.txt | nuclei -t ~/nuclei-templates/technologies/s3-detect.yaml -silent |sort -u| awk '{print $4}' | tee -a s3_bucket.txt
         
+        mkdir cloudflare
+        cd cloudflare
+
         
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting Cloudflare based hosts & their Origin IPs\e[0m"
-        cat alive.txt | nuclei -t ~/nuclei-templates/technologies/tech-detect.yaml -silent | egrep "cloudflare"|sort -u| awk '{print $4}' | tee -a subs_cloudflare.txt
+        cat ../alive.txt | nuclei -t ~/nuclei-templates/technologies/tech-detect.yaml -silent | egrep "cloudflare"|sort -u| awk '{print $4}' | tee -a cloudflare_hosts.txt
+
+filename=subs_cloudflare.txt
+
+while read line; do
+
+        python3 ~/tools/cloudflair/cloudflair.py $line | tee -a cloudflare_bypassed.txt
+        
+done < $filename        
+        
+        cd ..
+        mkdir wordpress
+        cd wordpress
+        cat ../alive.txt | nuclei -t ~/nuclei-templates/technologies/tech-detect.yaml -silent | egrep tech-detect:wordpress | awk '{print $4}'|sort -u| tee -a wphosts.txt
+        
+filename=wphosts.txt
+
+while read line; do
+
+
+         wpscan --url $line --detection-mode aggressive --max-threads 50 --disable-tls-checks --update --no-banner | tee -a wpscan.txt
+
+done < $filename
+
+cd ..
         
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mAquatone Started$\e[0m"
         mkdir screenshots
-        cat alive.txt | aquatone -out ./screenshots/$1 -threads 300 -ports xlarge -screenshot-timeout 50000
+        cat alive.txt | aquatone -out ./screenshots/$1 -threads 300 -ports xlarge -screenshot-timeout 60000
 
 
         mkdir dns
