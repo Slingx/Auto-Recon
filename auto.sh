@@ -51,7 +51,7 @@ final=$target/final
 #-------------------------------------------------------------------------------------------------------#
 
 domain=$1
-company= $1 |rev | cut -d"." -f2-  | rev
+company=$(echo $domain |rev | cut -d"." -f2-  | rev)
 
 #-------------------------------------------------------------------------------------------------------#
 #Creating Folders
@@ -202,7 +202,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mSorting Subdomains by Status Codes\e[0m"
         
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting Tech on Subdomains using Wappalyzer Started$\e[0m"
-        webanalyze -hosts alive.txt -silent -update | tee -a subs_wappalyzer.txt
+        webanalyze -hosts alive.txt -silent -apps ~/technologies.json | tee -a subs_wappalyzer.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting WAFs on Subdomains$\e[0m"
         wafw00f -a -i alive.txt -o subs_waf.txt
@@ -210,7 +210,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting WAFs on Subdomains$\e[0m"
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting cloud resources of the domain$\e[0m"
         python3 ~/tools/cloud_enum/cloud_enum.py -k $domain -k $company -l cloud_enum.txt 
 
-echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting S3 buckets & misconfigurations $\e[0m"
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting S3 buckets & misconfigurations\e[0m"
         cat alive.txt | nuclei -t ~/nuclei-templates/technologies/s3-detect.yaml -silent |sort -u| awk '{print $4}' | tee -a s3_bucket.txt
         
         mkdir cloudflare
@@ -220,7 +220,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting S3 buckets & misconfigurations $\e[
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting Cloudflare based hosts & their Origin IPs\e[0m"
         cat ../alive.txt | nuclei -t ~/nuclei-templates/technologies/tech-detect.yaml -silent | egrep "cloudflare"|sort -u| awk '{print $4}' | tee -a cloudflare_hosts.txt
 
-filename=subs_cloudflare.txt
+filename=cloudflare_hosts.txt
 
 while read line; do
 
@@ -229,9 +229,14 @@ while read line; do
 done < $filename        
         
         cd ..
+
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mDetecting Wordpress hosts\e[0m"
+
         mkdir wordpress
         cd wordpress
         cat ../alive.txt | nuclei -t ~/nuclei-templates/technologies/tech-detect.yaml -silent | egrep tech-detect:wordpress | awk '{print $4}'|sort -u| tee -a wphosts.txt
+        
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mRunning WPscan on Wordpress hosts\e[0m"        
         
 filename=wphosts.txt
 
