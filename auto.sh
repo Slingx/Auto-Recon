@@ -343,10 +343,12 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mScanning For CORS\e[0m"
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mNuclei Scanning\e[0m"
         cd $final
         mkdir $final/nuclei
-        cat alive.txt | nuclei -t ~/nuclei-templates -exclude ~/nuclei-templates/fuzzing/basic-auth-bruteforce.yaml -o nuclei/nuclei.txt
+        cat alive.txt | nuclei -t ~/nuclei-templates -exclude ~/nuclei-templates/fuzzing/basic-auth-bruteforce.yaml -o nuclei/nuclei.txt | notify -silent
+        
+echo
 
 
 duration=$SECONDS
 
-printf "${GREEN}[+]${CYAN} Scan is completed in : $(($duration / 60)) minutes and $(($duration % 60)) seconds.${RESET}\n"
+printf "${GREEN}[+]${CYAN} Scan is completed for $domain in : $(($duration / 60)) minutes and $(($duration % 60)) seconds.${RESET}\n" | notify -silent
 exit
