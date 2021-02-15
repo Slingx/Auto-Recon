@@ -261,7 +261,9 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCNAME Scanning Started\e[0m"
         dnsprobe -l alive.txt -r CNAME |sort -u| tee -a ./dns/domain-cnames
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mGetting IP Addresses for Each Alive Host\e[0m"
-        dnsprobe -l alive.txt | sort -u |sort -u|  tee -a ./dns/domain-ips
+        dnsprobe -l alive.txt|sort -u| tee -a ./dns/domain-ips
+        
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mChecking Virtual Hosts on all IPs\e[0m"
 
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mJScanning started\e[0m"
