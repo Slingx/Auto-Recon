@@ -183,7 +183,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mMoving files to final folder$\e[0m"
         cd $final
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mChecking for alive domains\e[0m"
-        cat total_subdomains.txt | sort -u | httpx -timeout 5 -threads 300 -retries 1 -ports 80,443,8009,8080,8081,8090,8180,8443 -content-length -status-code -title  -ip -cname  -cdn -web-server -websocket -silent -o alive_detailed.txt
+        cat total_subdomains.txt |grep -v "lync"|grep -v "autodiscover"| sort -u | httpx -timeout 5 -threads 300 -retries 1 -ports 80,443,8009,8080,8081,8090,8180,8443 -content-length -status-code -title  -ip -cname  -cdn -web-server -websocket -silent -o alive_detailed.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mOKAY these are the final Alive domains\e[0m"
         cat alive_detailed.txt | cut -d : -f-2 |sort -u|tee alive.txt
@@ -194,6 +194,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mFound: $count Alive Subdomain's\e[0m"
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mSorting Subdomains by Status Codes\e[0m"
         mkdir subdomains_sorted && cd subdomains_sorted
         cat ../alive_detailed.txt| egrep '400|401|402|403|404|405' | cut -d : -f-2 |sort -u > 400.txt
+        cat ../alive_detailed.txt| egrep '401|403' | cut -d : -f-2 |sort -u > 401-403.txt
         cat ../alive_detailed.txt| egrep '200|201|202|203|204|205' | cut -d : -f-2 |sort -u > 200.txt
         cat ../alive_detailed.txt| egrep '300|301|302|304|307|308' | cut -d : -f-2 |sort -u > 300.txt
         cat ../alive_detailed.txt| egrep '500|501|502|503|504|505' | cut -d : -f-2 |sort -u > 500.txt
@@ -295,34 +296,18 @@ echo -e ' '
 #echo -e "\e[5m\e[1m${BLUE}[+]\e[96m${YELLOW}Plain massdns Scanning\e[0m"
 #       massdns -r $resolver -w massdns-op.txt $final/total_subs.txt
 
-echo -e "\e[5m\e[1m${BLUE}[+]\e[96mBypassing Subdomains with 400 status code\e[0m"
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mBypassing Subdomains with 401 & 403 status code\e[0m"
 cd $final/subdomains_sorted/
 
-filename=./400.txt
+filename=./401-403.txt
 
 while read line; do
 
 
-        byp4xx.sh -r -c $line | egrep curl | sort -u | tee -a 400_bypassed.txt
+        byp4xx.sh -r -c $line | egrep curl | sort -u | tee -a 40x_bypassed.txt
 
 done < $filename
 cd $final
-echo -e ""
-
-#prompt_confirm() {
-#  while true; do
-#    read -r -n 1 -p "${1:-Continue?} [y/n]: " REPLY
-#    case $REPLY in
-#      [yY]) printf "\nScanning For Broken-Links\n" && cat alive.txt | while read i ; do broken-link-checker -rofi --filter-level 3 $i | egrep BROKEN | sort -u | tee blc; done ; return 0
-#       ;;
-#      [nN]) echo ; return 1 ;;
-#      *) printf " \033[31m %s \n\033[0m" "Bruh..Only {Y/N}"
-#    esac
-#  done
-#}
-
-#prompt_confirm "${BLUE}[+] ${YELLOW}Do you wanna Check for Broken-Link-HighJacking?${RESET}"
-
 echo -e ""
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96m Checking Subdomamin Takeovers\e[0m"
@@ -330,7 +315,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96m Checking Subdomamin Takeovers\e[0m"
         subjack -w ../alive.txt -t 100 -timeout 30 -o subjack.txt -ssl
         subzy -targets ../alive.txt -concurrency 1000 -timeout 30 -hide_fails | tee subzy.txt
         python3 ~/tools/subdover/subdover.py -l ../alive.txt -t 1000 -o subdover.txt
-        cat ../alive.txt | nuclei -t ~/nuclei-templates/takeovers/subdomain-takeover.yaml -o nuclei.txt
+        cat ../alive.txt | nuclei -t ~/nuclei-templates/takeovers/subdomain-takeover.yaml -silent -o nuclei.txt
         cat *.txt > takeovers.txt
         rm subjack.txt subzy.txt subdover.txt nuclei.txt
         cd ..
@@ -339,13 +324,42 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mScanning For CORS\e[0m"
         cd $final
         mkdir $final/cors
         cat alive.txt | CorsMe -t 70 -wildcard -output ./cors/cors.txt
+        
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mChecking for Clickjacking\e[0m"
+        mkdir clickjacking
+        cd clickjacking
+       cat ../alive.txt | nuclei -t ~/nuclei-templates/miscellaneous/missing-x-frame-options.yaml -silent | awk '{print $4}'|sort -u| tee -a clickjacking.txt
+       cd ..
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mNuclei Scanning\e[0m"
         cd $final
         mkdir $final/nuclei
-        cat alive.txt | nuclei -t ~/nuclei-templates -exclude ~/nuclei-templates/fuzzing/basic-auth-bruteforce.yaml -o nuclei/nuclei.txt | notify -silent
+        cat alive.txt | nuclei -t ~/nuclei-templates -exclude ~/nuclei-templates/fuzzing/basic-auth-bruteforce.yaml -o nuclei/nuclei.txt 
         
-echo
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mPerforming Github Dorking\e[0m"
+        cd $final
+        mkdir github_dorking
+        cd github_dorking
+
+        python3 ~/tools/GitDorker/GitDorker.py -tf ~/recon_config/github_tokens.txt -q $domain -d ~/tools/GitDorker/Dorks/alldorksv3 -e 5 -o github_leaks.txt
+        cd ..
+
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mFuzzing all subdomains with mixed.txt\e[0m"
+        mkdir fuzzing
+        cd fuzzzing
+
+
+        ffuf -u DOMAIN/PATH -w ~/wordlists/mixed.txt:PATH,../alive.txt:DOMAIN -v -r -sf -t 200 -ic -mc 200,204,401,302,301 -fw 0-8 -e .bak -of html -o fuzzing.txt
+       cd ..
+        
+
+echo -e "\e[5m\e[1m${BLUE}[+]\e[96mScanning For Broken-Links\e[0m"
+
+mkdir broken-links
+cd broken-links
+cat alive.txt | while read i ; do blc -rofi --filter-level 3 $i | egrep BROKEN | sort -u | tee -a broken-links.txt; done ; return 0
+cd ..
+
 
 
 duration=$SECONDS
