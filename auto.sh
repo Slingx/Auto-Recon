@@ -37,7 +37,7 @@ echo
 securitytrails_key='jp9CslVyzOXNi8nQ3YPD5vrvxqUupyP0'
 virustotal_key='b44bd8d74272d806556c3aae24fc009723fb93bdf18b35d3bdb609df95067d08'
 chaos_key='4fc7c0da749de6a402c5f1bcf6d3c7793806996f090ecdec0920971426e0adbe'
-gitoken='ff50ca2224b28d534d19ad9804c799ca7114d95d' #mykey#
+gitoken='8f8f8e31f1538c12b1be25cf5c1a60c45a289e22' #mykey#
 ##TEXT FILES##
 pwords=/usr/share/wordlist/pwords.txt
 sresolver=/usr/share/wordlist/resolvers.txt
