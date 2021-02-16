@@ -346,13 +346,13 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mPerforming Github Dorking\e[0m"
         python3 ~/tools/GitDorker/GitDorker.py -tf ~/recon_config/github_tokens.txt -q $domain -d ~/tools/GitDorker/Dorks/alldorksv3 -e 5 -o github_leaks.txt
         cd ..
 
-echo -e "\e[5m\e[1m${BLUE}[+]\e[96mFuzzing all subdomains with mixed.txt\e[0m"
-        mkdir fuzzing
-        cd fuzzzing
+#echo -e "\e[5m\e[1m${BLUE}[+]\e[96mFuzzing all subdomains with mixed.txt\e[0m"
+#        mkdir fuzzing
+#        cd fuzzzing
 
 
-        ffuf -u DOMAIN/PATH -w ~/wordlists/mixed.txt:PATH,../alive.txt:DOMAIN -v -r -sf -t 200 -ic -mc 200,204,401,302,301 -fw 0-8 -e .bak -of html -o fuzzing.txt
-       cd ..
+#        ffuf -u DOMAIN/PATH -w ~/wordlists/mixed.txt:PATH,../alive.txt:DOMAIN -v -r -sf -t 200 -ic -mc 200,204,401,302,301 -fw 0-8 -e .bak -of html -o fuzzing.txt
+ #      cd ..
         
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mScanning For Broken-Links\e[0m"
