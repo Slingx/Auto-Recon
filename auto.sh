@@ -97,7 +97,7 @@ echo -e "\e[5m\e[1m${BLUE}[+]\e[96mGithub-Scanning started$\e[0m"
         python3 ~/tools/github-search/github-subdomains.py -e -t $gitoken -d $1 | egrep '$1' | tee -a github.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mGau Scanning started\e[0m"
-        gau -subs elmt.io | cut -d / -f 3 | cut -d : -f-1|sort -u | tee -a gau.txt
+        gau -subs $1 | cut -d / -f 3 | cut -d : -f-1|sort -u | tee -a gau.txt
 
 echo -e "\e[5m\e[1m${BLUE}[+]\e[96mCrt.sh Scanning started\e[0m"
         curl -s https://crt.sh/\?q\=\%.$1\&output\=json | jq -r '.[].name_value' | sed 's/\*\.//g' | sort -u | tee -a crt.txt
